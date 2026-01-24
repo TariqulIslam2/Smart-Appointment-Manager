@@ -1,65 +1,169 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+
+export default function Dashboard() {
+  const router = useRouter();
+  const [stats, setStats] = useState({
+    totalAppointments: 0,
+    completed: 0,
+    pending: 0,
+    queueCount: 0
+  });
+  const [staffLoad, setStaffLoad] = useState([]);
+  const [activityLog, setActivityLog] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Check authentication
+    const token = localStorage.getItem('token');
+    if (!token) {
+      router.push('/auth/login');
+      return;
+    }
+
+    fetchDashboardData();
+  }, [router]);
+
+  const fetchDashboardData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+
+      const response = await fetch('/api/dashboard', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data.stats);
+        setStaffLoad(data.staffLoad);
+        setActivityLog(data.activityLog);
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.js file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <div className="flex space-x-4">
+          <Link href="/appointments/create" className="btn-primary">
+            + New Appointment
+          </Link>
+          <Link href="/queue" className="btn-secondary">
+            View Queue
+          </Link>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="card">
+          <h3 className="text-lg font-semibold text-gray-600">Today's Appointments</h3>
+          <p className="text-3xl font-bold mt-2">{stats.totalAppointments}</p>
         </div>
-      </main>
+
+        <div className="card">
+          <h3 className="text-lg font-semibold text-gray-600">Completed</h3>
+          <p className="text-3xl font-bold mt-2 text-green-600">{stats.completed}</p>
+        </div>
+
+        <div className="card">
+          <h3 className="text-lg font-semibold text-gray-600">Pending</h3>
+          <p className="text-3xl font-bold mt-2 text-yellow-600">{stats.pending}</p>
+        </div>
+
+        <div className="card">
+          <h3 className="text-lg font-semibold text-gray-600">Waiting Queue</h3>
+          <p className="text-3xl font-bold mt-2 text-red-600">{stats.queueCount}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Staff Load */}
+        <div className="card">
+          <h2 className="text-xl font-bold mb-4">Staff Load Summary</h2>
+          <div className="space-y-3">
+            {staffLoad.map(staff => (
+              <div key={staff.id} className="flex justify-between items-center p-3 bg-gray-50 rounded">
+                <span className="font-medium">{staff.name}</span>
+                <div className="flex items-center space-x-3">
+                  <span className={`px-3 py-1 rounded-full text-sm ${staff.load >= staff.capacity ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                    }`}>
+                    {staff.load} / {staff.capacity}
+                  </span>
+                  <span className="text-sm">
+                    {staff.load >= staff.capacity ? '(Booked)' : '(OK)'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Activity Log */}
+        <div className="card">
+          <h2 className="text-xl font-bold mb-4">Recent Activity</h2>
+          <div className="space-y-3">
+            {activityLog.length > 0 ? (
+              activityLog.map(log => (
+                <div key={log.id} className="p-3 border-l-4 border-blue-500 bg-gray-50">
+                  <p className="text-sm text-gray-600">
+                    {new Date(log.created_at).toLocaleDateString()} •
+                    {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                  <p>{log.action}</p>
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-500 text-center py-4">No recent activity</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="card">
+        <h2 className="text-xl font-bold mb-4">Quick Actions</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Link href="/appointments" className="p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
+            <div className="text-blue-600 text-2xl mb-2">📅</div>
+            <h3 className="font-bold">Manage Appointments</h3>
+            <p className="text-sm text-gray-600">View and manage all appointments</p>
+          </Link>
+
+          <Link href="/staff" className="p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">
+            <div className="text-green-600 text-2xl mb-2">👥</div>
+            <h3 className="font-bold">Staff Management</h3>
+            <p className="text-sm text-gray-600">Manage staff and availability</p>
+          </Link>
+
+          <Link href="/queue" className="p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">
+            <div className="text-purple-600 text-2xl mb-2">⏳</div>
+            <h3 className="font-bold">Waiting Queue</h3>
+            <p className="text-sm text-gray-600">Manage queued appointments</p>
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }
