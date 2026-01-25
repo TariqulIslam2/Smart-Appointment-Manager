@@ -42,7 +42,7 @@ export async function POST(request) {
         if (appointment_id) {
             // Get appointment details
             const [appointment] = await query(
-                `SELECT a.*, s.required_staff_type 
+                `SELECT a.*, s.required_staff_type ,s.duration
          FROM appointments a
          JOIN services s ON a.service_id = s.id
          WHERE a.id = ? AND a.staff_id IS NULL`,
@@ -68,6 +68,39 @@ export async function POST(request) {
                     { status: 400 }
                 );
             }
+
+            // 🔴 Time conflict check
+            // 🔴 Duration-based time overlap check
+            const [timeConflict] = await query(
+                `
+    SELECT a.id
+    FROM appointments a
+    JOIN services s ON a.service_id = s.id
+    WHERE a.staff_id = ?
+      AND a.appointment_date = ?
+      AND a.status IN ('scheduled', 'completed')
+      AND (
+            ? < ADDTIME(a.appointment_time, SEC_TO_TIME(s.duration * 60))
+        AND ADDTIME(?, SEC_TO_TIME(? * 60)) > a.appointment_time
+      )
+    LIMIT 1
+    `,
+                [
+                    staff_id,
+                    appointment.appointment_date,
+                    appointment.appointment_time,          // new start
+                    appointment.appointment_time,          // new start
+                    appointment.duration           // new duration
+                ]
+            );
+
+            if (timeConflict) {
+                return NextResponse.json(
+                    { error: 'Staff has another appointment during this time slot' },
+                    { status: 400 }
+                );
+            }
+
 
             // Check capacity
             const [capacityCheck] = await query(
@@ -106,20 +139,37 @@ export async function POST(request) {
         }
 
         // If no appointment_id, find earliest eligible appointment
+        // If no appointment_id, find earliest eligible appointment
         if (!appointment_id && staff_id) {
             // Get staff info
-            const [staff] = await query('SELECT * FROM staff WHERE id = ?', [staff_id]);
+            const [staff] = await query(
+                'SELECT * FROM staff WHERE id = ?',
+                [staff_id]
+            );
+
+            if (!staff) {
+                return NextResponse.json(
+                    { error: 'Staff not found' },
+                    { status: 404 }
+                );
+            }
 
             // Find earliest queued appointment that matches staff type
             const [eligibleAppointment] = await query(`
-        SELECT q.appointment_id, a.customer_name, a.appointment_date, s.required_staff_type
+        SELECT 
+            q.appointment_id,
+            a.customer_name,
+            a.appointment_date,
+            a.appointment_time,
+            s.required_staff_type,
+            s.duration
         FROM queue q
         JOIN appointments a ON q.appointment_id = a.id
         JOIN services s ON a.service_id = s.id
         WHERE s.required_staff_type = ?
         ORDER BY q.position ASC
         LIMIT 1
-      `, [staff.service_type]);
+    `, [staff.service_type]);
 
             if (!eligibleAppointment) {
                 return NextResponse.json(
@@ -128,11 +178,43 @@ export async function POST(request) {
                 );
             }
 
-            // Check capacity
+            // 🔴 Duration-based time overlap check (AUTO ASSIGN)
+            const [timeConflict] = await query(
+                `
+        SELECT a.id
+        FROM appointments a
+        JOIN services s ON a.service_id = s.id
+        WHERE a.staff_id = ?
+          AND a.appointment_date = ?
+          AND a.status IN ('scheduled', 'completed')
+          AND (
+                ? < ADDTIME(a.appointment_time, SEC_TO_TIME(s.duration * 60))
+            AND ADDTIME(?, SEC_TO_TIME(? * 60)) > a.appointment_time
+          )
+        LIMIT 1
+        `,
+                [
+                    staff_id,
+                    eligibleAppointment.appointment_date,
+                    eligibleAppointment.appointment_time,   // new start
+                    eligibleAppointment.appointment_time,   // new start
+                    eligibleAppointment.duration            // new duration
+                ]
+            );
+
+            if (timeConflict) {
+                return NextResponse.json(
+                    { error: 'Staff has another appointment during this time slot' },
+                    { status: 400 }
+                );
+            }
+
+            // Check daily capacity
             const [capacityCheck] = await query(
                 `SELECT COUNT(*) as count FROM appointments 
-         WHERE staff_id = ? AND appointment_date = ? 
-         AND status IN ('scheduled', 'completed')`,
+         WHERE staff_id = ? 
+           AND appointment_date = ? 
+           AND status IN ('scheduled', 'completed')`,
                 [staff_id, eligibleAppointment.appointment_date]
             );
 
@@ -143,14 +225,17 @@ export async function POST(request) {
                 );
             }
 
-            // Update appointment
+            // Assign appointment
             await query(
                 'UPDATE appointments SET staff_id = ?, status = "scheduled" WHERE id = ?',
                 [staff_id, eligibleAppointment.appointment_id]
             );
 
             // Remove from queue
-            await query('DELETE FROM queue WHERE appointment_id = ?', [eligibleAppointment.appointment_id]);
+            await query(
+                'DELETE FROM queue WHERE appointment_id = ?',
+                [eligibleAppointment.appointment_id]
+            );
 
             // Log activity
             await query(
@@ -164,6 +249,7 @@ export async function POST(request) {
                 appointment_id: eligibleAppointment.appointment_id
             });
         }
+
 
         return NextResponse.json(
             { error: 'Either staff_id or appointment_id is required' },
