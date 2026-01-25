@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import {
     Calendar,
     Plus,
@@ -30,7 +30,7 @@ export default function CreateAppointmentPage() {
     const [submitting, setSubmitting] = useState(false);
     const [conflict, setConflict] = useState(null);
     const [today] = useState(format(new Date(), 'yyyy-MM-dd'));
-
+    console.log("conflict", conflict)
     const [formData, setFormData] = useState({
         customer_name: '',
         service_id: '',
@@ -90,22 +90,24 @@ export default function CreateAppointmentPage() {
         }
     };
 
-    const checkConflict = async () => {
-        if (!formData.staff_id) return;
+    const checkConflict = async (staffId, date, time) => {
+        if (!staffId) return;
 
         try {
+            console.log('Checking for conflicts...', staffId, date, time, formData.service_id);
             const response = await fetch(
-                `/api/appointments/check-conflict?staff_id=${formData.staff_id}&date=${formData.appointment_date}&time=${formData.appointment_time}`
+                `/api/appointments/check-conflict?staff_id=${staffId}&date=${date}&time=${time}&service_id=${formData.service_id}`
             );
 
-            if (response.ok) {
-                const data = await response.json();
-                setConflict(data.conflict ? data.existingAppointment : null);
-            }
+            if (!response.ok) return;
+
+            const data = await response.json();
+            setConflict(data.conflict ? data.existingAppointment : null);
         } catch (error) {
             console.error('Error checking conflict:', error);
         }
     };
+
 
     const handleSubmit = async (e) => {
         if (e) e.preventDefault();
@@ -149,17 +151,22 @@ export default function CreateAppointmentPage() {
 
     const handleTimeChange = (e) => {
         setFormData({ ...formData, appointment_time: e.target.value });
+        // console.log("handleTimeChange formData", formData)
         if (formData.staff_id) {
-            setTimeout(checkConflict, 500);
+            checkConflict(formData.staff_id, formData.appointment_date, e.target.value);
         }
     };
 
     const handleStaffChange = (e) => {
-        const staffId = e.target.value;
-        setFormData({ ...formData, staff_id: staffId });
+        const staffId = Number(e.target.value);
+
+        setFormData(prev => ({
+            ...prev,
+            staff_id: staffId
+        }));
 
         if (staffId) {
-            setTimeout(checkConflict, 500);
+            checkConflict(staffId, formData.appointment_date, formData.appointment_time);
         } else {
             setConflict(null);
         }
@@ -242,7 +249,7 @@ export default function CreateAppointmentPage() {
                                     <select
                                         className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none appearance-none bg-white"
                                         value={formData.service_id}
-                                        onChange={(e) => setFormData({ ...formData, service_id: e.target.value, staff_id: '' })}
+                                        onChange={(e) => setFormData({ ...formData, service_id: e.target.value })}
                                         required
                                     >
                                         <option value="">Select a service</option>
@@ -270,7 +277,7 @@ export default function CreateAppointmentPage() {
                                         className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none"
                                         value={formData.appointment_date}
                                         min={today}
-                                        onChange={(e) => setFormData({ ...formData, appointment_date: e.target.value, staff_id: '' })}
+                                        onChange={(e) => setFormData({ ...formData, appointment_date: e.target.value })}
                                         required
                                     />
                                 </div>
@@ -294,7 +301,7 @@ export default function CreateAppointmentPage() {
                                 <div className="group">
                                     <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
                                         <Users className="text-green-500" size={18} />
-                                        Assign Staff (Optional)
+                                        Assign Staff
                                     </label>
                                     <div className="space-y-4">
                                         <div className="relative">
@@ -415,13 +422,13 @@ export default function CreateAppointmentPage() {
                                                     </button>
                                                     <button
                                                         type="button"
-                                                        onClick={() => {
-                                                            const newTime = prompt('Enter new time (HH:MM):', formData.appointment_time);
-                                                            if (newTime) {
-                                                                setFormData({ ...formData, appointment_time: newTime });
-                                                                setConflict(null);
-                                                            }
-                                                        }}
+                                                        // onClick={() => {
+                                                        //     const newTime = prompt('Enter new time (HH:MM):', formData.appointment_time);
+                                                        //     if (newTime) {
+                                                        //         setFormData({ ...formData, appointment_time: newTime });
+                                                        //         setConflict(formData.staff_id, formData.appointment_date, newTime);
+                                                        //     }
+                                                        // }}
                                                         className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all"
                                                     >
                                                         Change Time

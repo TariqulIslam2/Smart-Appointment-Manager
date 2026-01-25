@@ -131,7 +131,8 @@ export default function AppointmentsPage() {
     const handleStatusChange = async (id, newStatus) => {
         try {
             const appointment = appointments.find(a => a.id === id);
-
+            // console.log('handleStatusChange', id, newStatus, appointment);
+            appointment.appointment_date = format(parseISO(appointment.appointment_date), 'yyyy-MM-dd');
             const response = await fetch(`/api/appointments/${id}`, {
                 method: 'PUT',
                 headers: {
@@ -157,6 +158,7 @@ export default function AppointmentsPage() {
             { value: 'completed', label: 'Completed', color: 'green' },
             { value: 'cancelled', label: 'Cancelled', color: 'red' },
             { value: 'no_show', label: 'No Show', color: 'yellow' },
+            { value: 'queued', label: 'Queued', color: 'yellow' },
         ];
 
         return statuses.map(status => (

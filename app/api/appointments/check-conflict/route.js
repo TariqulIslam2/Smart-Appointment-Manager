@@ -14,18 +14,44 @@ export async function GET(request) {
         const staff_id = searchParams.get('staff_id');
         const date = searchParams.get('date');
         const time = searchParams.get('time');
-        const exclude_id = searchParams.get('exclude_id'); // For updates
+        const service_id = searchParams.get('service_id');
+        const exclude_id = searchParams.get('exclude_id');
+
+        // 🔹 Get new service duration
+        const [service] = await query(
+            'SELECT duration FROM services WHERE id = ?',
+            [service_id]
+        );
+
+        if (!service) {
+            return NextResponse.json({ error: 'Invalid service' }, { status: 400 });
+        }
 
         let sql = `
-      SELECT a.*, s.name as service_name 
-      FROM appointments a
-      LEFT JOIN services s ON a.service_id = s.id
-      WHERE staff_id = ? 
-        AND appointment_date = ? 
-        AND appointment_time = ?
-        AND status != 'cancelled'
-    `;
-        const params = [staff_id, date, time];
+            SELECT 
+                a.*, 
+                s.name AS service_name,
+                s.duration,
+                ADDTIME(a.appointment_time, SEC_TO_TIME(s.duration * 60)) AS end_time
+            FROM appointments a
+            JOIN services s ON a.service_id = s.id
+            WHERE a.staff_id = ?
+              AND a.appointment_date = ?
+              AND a.status != 'cancelled'
+              AND (
+                  ? < ADDTIME(a.appointment_time, SEC_TO_TIME(s.duration * 60))
+                  AND
+                  ADDTIME(?, SEC_TO_TIME(? * 60)) > a.appointment_time
+              )
+        `;
+
+        const params = [
+            staff_id,
+            date,
+            time,
+            time,
+            service.duration
+        ];
 
         if (exclude_id) {
             sql += ' AND a.id != ?';
@@ -38,6 +64,7 @@ export async function GET(request) {
             conflict: conflicts.length > 0,
             existingAppointment: conflicts[0] || null
         });
+
     } catch (error) {
         console.error('Conflict check error:', error);
         return NextResponse.json({ error: 'Server error' }, { status: 500 });

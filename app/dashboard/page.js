@@ -36,6 +36,7 @@ export default function Dashboard() {
 
             if (response.ok) {
                 const data = await response.json();
+                console.log(data)
                 setStats(data.stats);
                 setStaffLoad(data.staffLoad);
                 setActivityLog(data.activityLog);
@@ -157,8 +158,8 @@ export default function Dashboard() {
                         </div>
                         <div className="space-y-4">
                             {staffLoad.map(staff => {
-                                const percentage = (staff.load / staff.capacity) * 100;
-                                const isOverloaded = staff.load >= staff.capacity;
+                                const percentage = (staff.loadcount / staff.capacity) * 100;
+                                const isOverloaded = staff.loadcount >= staff.capacity;
 
                                 return (
                                     <div key={staff.id} className="group">
@@ -169,7 +170,7 @@ export default function Dashboard() {
                                                     ? 'bg-gradient-to-r from-red-500 to-red-600 text-white'
                                                     : 'bg-gradient-to-r from-green-500 to-green-600 text-white'
                                                     }`}>
-                                                    {staff.load} / {staff.capacity}
+                                                    {staff.loadcount} / {staff.capacity}
                                                 </span>
                                                 <span className={`text-sm font-medium ${isOverloaded ? 'text-red-600' : 'text-green-600'
                                                     }`}>

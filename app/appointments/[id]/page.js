@@ -111,12 +111,12 @@ export default function EditAppointmentPage() {
         }
     };
 
-    const checkConflict = async () => {
-        if (!formData.staff_id || appointmentId === formData.staff_id) return;
+    const checkConflict = async (staffId, date, time) => {
+        if (!staffId || appointmentId === staffId) return;
 
         try {
             const response = await fetch(
-                `/api/appointments/check-conflict?staff_id=${formData.staff_id}&date=${formData.appointment_date}&time=${formData.appointment_time}&exclude_id=${appointmentId}`
+                `/api/appointments/check-conflict?staff_id=${staffId}&date=${date}&time=${time}&service_id=${formData.service_id}&exclude_id=${appointmentId}`
             );
 
             if (response.ok) {
@@ -167,7 +167,7 @@ export default function EditAppointmentPage() {
     const handleTimeChange = (e) => {
         setFormData({ ...formData, appointment_time: e.target.value });
         if (formData.staff_id) {
-            setTimeout(checkConflict, 500);
+            checkConflict(formData.staff_id, formData.appointment_date, e.target.value);
         }
     };
 
@@ -176,7 +176,7 @@ export default function EditAppointmentPage() {
         setFormData({ ...formData, staff_id: staffId });
 
         if (staffId) {
-            setTimeout(checkConflict, 500);
+            checkConflict(staffId, formData.appointment_date, formData.appointment_time);
         } else {
             setConflict(null);
         }
@@ -335,7 +335,7 @@ export default function EditAppointmentPage() {
                                         type="date"
                                         className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none"
                                         value={formData.appointment_date}
-                                        onChange={(e) => setFormData({ ...formData, appointment_date: e.target.value, staff_id: '' })}
+                                        onChange={(e) => setFormData({ ...formData, appointment_date: e.target.value })}
                                         required
                                     />
                                 </div>
@@ -517,13 +517,13 @@ export default function EditAppointmentPage() {
                                                     </button>
                                                     <button
                                                         type="button"
-                                                        onClick={() => {
-                                                            const newTime = prompt('Enter new time (HH:MM):', formData.appointment_time);
-                                                            if (newTime) {
-                                                                setFormData({ ...formData, appointment_time: newTime });
-                                                                setConflict(null);
-                                                            }
-                                                        }}
+                                                        // onClick={() => {
+                                                        //     const newTime = prompt('Enter new time (HH:MM):', formData.appointment_time);
+                                                        //     if (newTime) {
+                                                        //         setFormData({ ...formData, appointment_time: newTime });
+                                                        //         setConflict(null);
+                                                        //     }
+                                                        // }}
                                                         className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all"
                                                     >
                                                         Change Time

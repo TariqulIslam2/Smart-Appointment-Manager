@@ -44,7 +44,7 @@ export async function PUT(request, context) {
         const { id } = await context.params;
         const data = await request.json();
         const { customer_name, service_id, staff_id, appointment_date, appointment_time, status } = data;
-
+       
         // Get current appointment
         const [currentAppointment] = await query(
             'SELECT customer_name, staff_id, status FROM appointments WHERE id = ?',
