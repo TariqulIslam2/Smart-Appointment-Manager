@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, Suspense } from 'react'; // Added Suspense
-import { signIn } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Mail, Lock, LogIn, Sparkles, Zap } from 'lucide-react';
@@ -14,9 +14,17 @@ function LoginContent() {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-
+    const { data: session, status } = useSession();
     const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
+    // ✅ ADD THIS EFFECT
+    if (status === 'loading') {
+        return <div className="text-center">Checking session...</div>;
+    }
 
+    if (session) {
+        router.replace(callbackUrl);
+        return null;
+    }
     const handleSubmit = async (e) => {
         if (e) e.preventDefault();
         setError('');
