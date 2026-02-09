@@ -4,7 +4,7 @@ Smart Appointment Manager is a full-stack web application that helps businesses 
 It is designed for appointment-based organizations such as clinics, salons, service centers, and offices.
 
 ---
-
+[View the live website here](https://smart-appointment-manager-tariq.vercel.app)
 ## 🚀 Project Overview
 
 The system provides a centralized platform where users can:
